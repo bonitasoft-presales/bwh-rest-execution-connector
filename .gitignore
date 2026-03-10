@@ -1,0 +1,13 @@
+target/
+*.class
+*.jar
+*.zip
+*.log
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+.jqwik-database
+hs_err_pid*.log
+replay_pid*.log
