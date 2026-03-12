@@ -125,7 +125,7 @@
         </widget>
         <widget xsi:type="definition:Group" id="optionsGroup" optional="false">
             <widget xsi:type="definition:Text" id="timeoutMsWidget" inputName="timeoutMs"/>
-            <widget xsi:type="definition:CheckBox" id="verifySslWidget" inputName="verifySsl"/>
+            <widget xsi:type="definition:Checkbox" id="verifySslWidget" inputName="verifySsl"/>
         </widget>
         <widget xsi:type="definition:Group" id="advancedGroup" optional="true">
             <widget xsi:type="definition:TextArea" id="configJsonWidget" inputName="configJson"/>

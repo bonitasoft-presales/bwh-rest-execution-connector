@@ -10,12 +10,15 @@
     <includeBaseDirectory>false</includeBaseDirectory>
 
     <fileSets>
-        <!-- Include .impl file and classpath descriptor -->
+        <!-- Include .def, .impl, .properties, icon and classpath descriptor -->
         <fileSet>
             <outputDirectory/>
             <directory>target/classes</directory>
             <includes>
+                <include>bwh-rest-execution.def</include>
                 <include>bwh-rest-execution.impl</include>
+                <include>bwh-rest-execution.properties</include>
+                <include>connector.png</include>
                 <include>classpath</include>
             </includes>
         </fileSet>
