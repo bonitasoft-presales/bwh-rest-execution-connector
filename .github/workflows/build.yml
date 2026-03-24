@@ -74,8 +74,8 @@ jobs:
         run: |
           VERSION=$( ./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout )
           FINAL_NAME=$( ./mvnw help:evaluate -Dexpression=project.build.finalName -q -DforceStdout )
-          echo "::set-output name=version::$VERSION"
-          echo "::set-output name=final-name::$FINAL_NAME"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "final-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
 
       # Displays the extracted version and final name for logging and debugging purposes.
       - name: Display version
@@ -97,7 +97,7 @@ jobs:
         run: |
           mkdir -p target/unified-reports/
           cp -r target/site/* target/unified-reports/
-          cp -r target/reports/* target/unified-reports/
+          [ -d target/reports ] && cp -r target/reports/* target/unified-reports/ || true
 
       # Uploads the generated site documentation (Javadoc & JaCoCo reports) as a workflow artifact.
       # This artifact will be used by the 'deploy' job.
