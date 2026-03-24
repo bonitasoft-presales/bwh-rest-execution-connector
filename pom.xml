@@ -7,7 +7,7 @@
 
     <groupId>com.bonitasoft.processbuilder</groupId>
     <artifactId>bwh-rest-execution-connector</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>BWH REST Execution Connector</name>
@@ -45,12 +45,24 @@
         <jqwik.version>1.8.4</jqwik.version>
         <logback.version>1.2.13</logback.version>
 
+        <!-- Mutation testing -->
+        <pitest.version>1.15.3</pitest.version>
+        <pitest-junit5.version>1.2.1</pitest-junit5.version>
+
         <!-- Plugins -->
         <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
+        <maven-release-plugin.version>3.0.1</maven-release-plugin.version>
         <jacoco.version>0.8.12</jacoco.version>
     </properties>
+
+    <scm>
+        <url>https://github.com/${github.owner}/${github.repo}</url>
+        <developerConnection>scm:git:${project.scm.url}.git</developerConnection>
+        <connection>scm:git:${project.scm.url}.git</connection>
+        <tag>HEAD</tag>
+    </scm>
 
     <!-- Resolve shared library from GitHub Packages -->
     <repositories>
@@ -235,6 +247,44 @@
                         <goals><goal>report</goal></goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- PIT Mutation Testing -->
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>${pitest.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-junit5-plugin</artifactId>
+                        <version>${pitest-junit5.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <targetClasses>
+                        <param>com.bonitasoft.processbuilder.connector.*</param>
+                    </targetClasses>
+                    <targetTests>
+                        <param>com.bonitasoft.processbuilder.connector.*</param>
+                    </targetTests>
+                    <outputFormats>
+                        <outputFormat>HTML</outputFormat>
+                        <outputFormat>CSV</outputFormat>
+                    </outputFormats>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Release Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>${maven-release-plugin.version}</version>
+                <configuration>
+                    <tagNameFormat>v@{project.version}</tagNameFormat>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <arguments>-DskipTests -Dgithub.owner=${github.owner} -Dgithub.repo=${github.repo}</arguments>
+                </configuration>
             </plugin>
         </plugins>
     </build>

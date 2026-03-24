@@ -30,6 +30,8 @@ jobs:
         run: |
           chmod +x mvnw
           ./mvnw clean verify -Pci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Force a hard reset to remove all local changes
         run: git reset --hard
@@ -107,6 +109,8 @@ jobs:
           echo "build ${{ steps.previous-tag.outputs.tag }}"
           chmod +x mvnw
           ./mvnw clean verify -Pci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get version from pom
         id: get-version
@@ -114,8 +118,8 @@ jobs:
           chmod +x mvnw
           VERSION=$( ./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout )
           FINAL_NAME=$( ./mvnw help:evaluate -Dexpression=project.build.finalName -q -DforceStdout )
-          echo "::set-output name=version::$VERSION"
-          echo "::set-output name=final-name::$FINAL_NAME"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "final-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Display version
         id: display-version

@@ -47,6 +47,7 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
+          server-id: github
           cache: 'maven'
 
       - name: Run Mutation Testing
@@ -54,6 +55,8 @@ jobs:
           echo "Running PIT Mutation Testing with ${{ github.event.inputs.mutator }} mutators..."
           ./mvnw clean test pitest:mutationCoverage \
             -Dpitest.mutators=${{ github.event.inputs.mutator }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Mutation Report
         uses: actions/upload-artifact@v4
