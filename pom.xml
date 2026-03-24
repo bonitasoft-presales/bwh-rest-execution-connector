@@ -4,7 +4,7 @@
 
     <groupId>com.bonitasoft.processbuilder</groupId>
     <artifactId>bwh-rest-execution-connector</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
 
     <name>BWH REST Execution Connector</name>
@@ -58,7 +58,7 @@
         <url>https://github.com/${github.owner}/${github.repo}</url>
         <developerConnection>scm:git:${project.scm.url}.git</developerConnection>
         <connection>scm:git:${project.scm.url}.git</connection>
-        <tag>HEAD</tag>
+        <tag>v1.0.2</tag>
     </scm>
 
     <!-- Resolve shared library from GitHub Packages -->
