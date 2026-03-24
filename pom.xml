@@ -284,6 +284,10 @@
                     <tagNameFormat>v@{project.version}</tagNameFormat>
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <arguments>-DskipTests -Dgithub.owner=${github.owner} -Dgithub.repo=${github.repo}</arguments>
+                    <checkModificationExcludes>
+                        <checkModificationExclude>mvnw</checkModificationExclude>
+                        <checkModificationExclude>mvnw.cmd</checkModificationExclude>
+                    </checkModificationExcludes>
                 </configuration>
             </plugin>
         </plugins>
