@@ -1,0 +1,159 @@
+# ============================================================================
+# Mutation Testing Workflow
+# ============================================================================
+# This workflow runs PIT Mutation Testing on demand.
+# It is NOT run automatically - only when manually triggered from GitHub UI.
+#
+# Usage:
+#   1. Go to Actions tab in GitHub
+#   2. Select "Mutation Testing" workflow
+#   3. Click "Run workflow"
+#   4. View results in the workflow summary or download artifacts
+#
+# Note: This takes ~8-10 minutes to complete
+# ============================================================================
+
+name: Mutation Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      mutator:
+        description: 'Mutator strength'
+        required: true
+        default: 'DEFAULTS'
+        type: choice
+        options:
+          - DEFAULTS
+          - STRONGER
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: PIT Mutation Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
+      - name: Install Java and Maven
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Mutation Testing
+        run: |
+          echo "Running PIT Mutation Testing with ${{ github.event.inputs.mutator }} mutators..."
+          ./mvnw clean test pitest:mutationCoverage \
+            -Dpitest.mutators=${{ github.event.inputs.mutator }}
+
+      - name: Upload Mutation Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pit-mutation-report
+          path: target/pit-reports/
+          retention-days: 30
+
+      - name: Generate Summary Report
+        if: always()
+        run: |
+          echo "## 🧬 Mutation Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Mutator strength: \`${{ github.event.inputs.mutator }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Parse statistics from index.html
+          if [ -f target/pit-reports/index.html ]; then
+            echo "### 📊 Project Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract project summary from HTML
+            # Format: Number of Classes | Line Coverage | Mutation Coverage | Test Strength
+            LINE_COV=$(grep -oP '\d+/\d+</div></td>\s*<td>\d+%' target/pit-reports/index.html | head -1 | grep -oP '\d+%' || echo "N/A")
+
+            # Extract from the project summary table (first tbody after Project Summary)
+            CLASSES=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '(?<=<td>)\d+(?=</td>)' | head -1 || echo "N/A")
+
+            # Extract coverage percentages from the coverage_legend divs
+            LINE_INFO=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+/\d+' | head -1 || echo "N/A")
+            MUT_INFO=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+/\d+' | head -2 | tail -1 || echo "N/A")
+            STRENGTH_INFO=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+/\d+' | head -3 | tail -1 || echo "N/A")
+
+            # Extract percentages
+            LINE_PCT=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+%' | head -1 || echo "N/A")
+            MUT_PCT=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+%' | head -2 | tail -1 || echo "N/A")
+            STRENGTH_PCT=$(sed -n '/<h3>Project Summary<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | grep -oP '\d+%' | head -3 | tail -1 || echo "N/A")
+
+            echo "| Metric | Coverage | Details |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|----------|---------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 📏 **Line Coverage** | **${LINE_PCT}** | ${LINE_INFO} lines |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🧬 **Mutation Score** | **${MUT_PCT}** | ${MUT_INFO} mutants killed |" >> $GITHUB_STEP_SUMMARY
+            echo "| 💪 **Test Strength** | **${STRENGTH_PCT}** | ${STRENGTH_INFO} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract package breakdown
+            echo "### 📦 Breakdown by Package" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Package | Classes | Line Cov | Mutation Cov | Test Strength |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|---------|----------|--------------|---------------|" >> $GITHUB_STEP_SUMMARY
+
+            # Parse each package row from the breakdown table
+            sed -n '/<h3>Breakdown by Package<\/h3>/,/<\/tbody>/p' target/pit-reports/index.html | \
+            grep -oP '(?<=href="./)[^/]+(?=/index.html)' | while read pkg; do
+              # Get the row for this package
+              PKG_ROW=$(sed -n "/${pkg}/,/<\/tr>/p" target/pit-reports/index.html | head -20)
+              PKG_CLASSES=$(echo "$PKG_ROW" | grep -oP '(?<=<td>)\d+(?=</td>)' | head -1 || echo "-")
+              PKG_LINE=$(echo "$PKG_ROW" | grep -oP '\d+%' | head -1 || echo "-")
+              PKG_MUT=$(echo "$PKG_ROW" | grep -oP '\d+%' | head -2 | tail -1 || echo "-")
+              PKG_STR=$(echo "$PKG_ROW" | grep -oP '\d+%' | head -3 | tail -1 || echo "-")
+              echo "| \`${pkg}\` | ${PKG_CLASSES} | ${PKG_LINE} | ${PKG_MUT} | ${PKG_STR} |" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Parse surviving mutations from CSV if available
+          if [ -f target/pit-reports/mutations.csv ]; then
+            SURVIVED=$(grep -c ",SURVIVED," target/pit-reports/mutations.csv 2>/dev/null || echo 0)
+
+            if [ "$SURVIVED" -gt 0 ]; then
+              echo "### ⚠️ Top Classes with Surviving Mutants" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| Class | Surviving Mutants |" >> $GITHUB_STEP_SUMMARY
+              echo "|-------|-------------------|" >> $GITHUB_STEP_SUMMARY
+              grep ",SURVIVED," target/pit-reports/mutations.csv | cut -d',' -f1 | sort | uniq -c | sort -rn | head -10 | \
+              while read count class; do
+                SHORT_CLASS=$(echo "$class" | sed 's/.*\.//')
+                echo "| \`${SHORT_CLASS}\` | ${count} |" >> $GITHUB_STEP_SUMMARY
+              done
+              echo "" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### ✅ All Mutants Killed!" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Excellent! All generated mutations were detected by the test suite." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download Full Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the **pit-mutation-report** artifact from the Artifacts section below to view the full HTML report." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The report includes:" >> $GITHUB_STEP_SUMMARY
+          echo "- Detailed mutation analysis per class" >> $GITHUB_STEP_SUMMARY
+          echo "- Line-by-line mutation results" >> $GITHUB_STEP_SUMMARY
+          echo "- Source code with mutation markers" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Report generated by [PIT](https://pitest.org) mutation testing framework_" >> $GITHUB_STEP_SUMMARY

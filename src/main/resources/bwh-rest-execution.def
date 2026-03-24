@@ -10,38 +10,12 @@
     <category icon="connector.png" id="ProcessBuilder"/>
 
     <!-- ================================================================== -->
-    <!-- Page 1: Authentication Inputs                                      -->
+    <!-- Inputs: Only configJson is required. Everything is resolved from    -->
+    <!-- PBConfiguration (auth, methods, headers, etc.) via the configJson  -->
+    <!-- Groovy script in PE_RestAPIConnector.                              -->
     <!-- ================================================================== -->
-    <input mandatory="false" name="authType"     type="java.lang.String" defaultValue="NONE"/>
-    <input mandatory="false" name="username"     type="java.lang.String"/>
-    <input mandatory="false" name="password"     type="java.lang.String"/>
-    <input mandatory="false" name="token"        type="java.lang.String"/>
-    <input mandatory="false" name="apiKeyName"   type="java.lang.String"/>
-    <input mandatory="false" name="apiKeyValue"  type="java.lang.String"/>
-    <input mandatory="false" name="apiKeyLocation" type="java.lang.String" defaultValue="HEADER"/>
-    <input mandatory="false" name="tokenUrl"     type="java.lang.String"/>
-    <input mandatory="false" name="clientId"     type="java.lang.String"/>
-    <input mandatory="false" name="clientSecret" type="java.lang.String"/>
-    <input mandatory="false" name="scope"        type="java.lang.String"/>
-
-    <!-- ================================================================== -->
-    <!-- Page 2: Request Configuration Inputs                               -->
-    <!-- ================================================================== -->
-    <input mandatory="false" name="httpMethod"   type="java.lang.String" defaultValue="GET"/>
-    <input mandatory="false" name="url"          type="java.lang.String"/>
-    <input mandatory="false" name="path"         type="java.lang.String"/>
-    <input mandatory="false" name="contentType"  type="java.lang.String" defaultValue="application/json"/>
-
-    <!-- ================================================================== -->
-    <!-- Page 3: Parameters & Options Inputs                                -->
-    <!-- ================================================================== -->
-    <input mandatory="false" name="body"             type="java.lang.String"/>
-    <input mandatory="false" name="headersJson"      type="java.lang.String"/>
-    <input mandatory="false" name="queryParamsJson"  type="java.lang.String"/>
-    <input mandatory="false" name="templateParamsJson" type="java.lang.String"/>
-    <input mandatory="false" name="timeoutMs"        type="java.lang.Integer"/>
-    <input mandatory="false" name="verifySsl"        type="java.lang.Boolean" defaultValue="true"/>
-    <input mandatory="false" name="configJson"       type="java.lang.String"/>
+    <input mandatory="false" name="configJson"  type="java.lang.String"/>
+    <input mandatory="false" name="verifySsl"   type="java.lang.Boolean" defaultValue="true"/>
 
     <!-- ================================================================== -->
     <!-- Outputs                                                            -->
@@ -55,80 +29,14 @@
     <output name="requestUrl"      type="java.lang.String"/>
 
     <!-- ================================================================== -->
-    <!-- Page 1: Authentication Configuration                               -->
+    <!-- Single page: Configuration JSON + SSL option                       -->
     <!-- ================================================================== -->
-    <page id="authPage">
-        <widget xsi:type="definition:Group" id="authTypeGroup" optional="false">
-            <widget xsi:type="definition:Select" id="authTypeWidget" inputName="authType">
-                <items>NONE</items>
-                <items>BASIC</items>
-                <items>BEARER</items>
-                <items>API_KEY</items>
-                <items>OAUTH2_CLIENT_CREDENTIALS</items>
-                <items>OAUTH2_PASSWORD</items>
-            </widget>
-        </widget>
-        <widget xsi:type="definition:Group" id="basicAuthGroup" optional="true">
-            <widget xsi:type="definition:Text" id="usernameWidget" inputName="username"/>
-            <widget xsi:type="definition:Password" id="passwordWidget" inputName="password"/>
-        </widget>
-        <widget xsi:type="definition:Group" id="bearerGroup" optional="true">
-            <widget xsi:type="definition:Password" id="tokenWidget" inputName="token"/>
-        </widget>
-        <widget xsi:type="definition:Group" id="apiKeyGroup" optional="true">
-            <widget xsi:type="definition:Text" id="apiKeyNameWidget" inputName="apiKeyName"/>
-            <widget xsi:type="definition:Password" id="apiKeyValueWidget" inputName="apiKeyValue"/>
-            <widget xsi:type="definition:Select" id="apiKeyLocationWidget" inputName="apiKeyLocation">
-                <items>HEADER</items>
-                <items>QUERY</items>
-            </widget>
-        </widget>
-        <widget xsi:type="definition:Group" id="oauth2Group" optional="true">
-            <widget xsi:type="definition:Text" id="tokenUrlWidget" inputName="tokenUrl"/>
-            <widget xsi:type="definition:Text" id="clientIdWidget" inputName="clientId"/>
-            <widget xsi:type="definition:Password" id="clientSecretWidget" inputName="clientSecret"/>
-            <widget xsi:type="definition:Text" id="scopeWidget" inputName="scope"/>
-        </widget>
-    </page>
-
-    <!-- ================================================================== -->
-    <!-- Page 2: HTTP Method & Endpoint                                     -->
-    <!-- ================================================================== -->
-    <page id="requestPage">
-        <widget xsi:type="definition:Group" id="methodGroup" optional="false">
-            <widget xsi:type="definition:Select" id="httpMethodWidget" inputName="httpMethod">
-                <items>GET</items>
-                <items>POST</items>
-                <items>PUT</items>
-                <items>DELETE</items>
-                <items>PATCH</items>
-                <items>HEAD</items>
-                <items>OPTIONS</items>
-            </widget>
-        </widget>
-        <widget xsi:type="definition:Group" id="endpointGroup" optional="false">
-            <widget xsi:type="definition:Text" id="urlWidget" inputName="url"/>
-            <widget xsi:type="definition:Text" id="pathWidget" inputName="path"/>
-            <widget xsi:type="definition:Text" id="contentTypeWidget" inputName="contentType"/>
-        </widget>
-    </page>
-
-    <!-- ================================================================== -->
-    <!-- Page 3: Parameters & Options                                       -->
-    <!-- ================================================================== -->
-    <page id="paramsPage">
-        <widget xsi:type="definition:Group" id="bodyGroup" optional="true">
-            <widget xsi:type="definition:TextArea" id="bodyWidget" inputName="body"/>
-            <widget xsi:type="definition:TextArea" id="headersJsonWidget" inputName="headersJson"/>
-            <widget xsi:type="definition:TextArea" id="queryParamsJsonWidget" inputName="queryParamsJson"/>
-            <widget xsi:type="definition:TextArea" id="templateParamsJsonWidget" inputName="templateParamsJson"/>
-        </widget>
-        <widget xsi:type="definition:Group" id="optionsGroup" optional="false">
-            <widget xsi:type="definition:Text" id="timeoutMsWidget" inputName="timeoutMs"/>
-            <widget xsi:type="definition:Checkbox" id="verifySslWidget" inputName="verifySsl"/>
-        </widget>
-        <widget xsi:type="definition:Group" id="advancedGroup" optional="true">
+    <page id="configPage">
+        <widget xsi:type="definition:Group" id="configGroup" optional="false">
             <widget xsi:type="definition:TextArea" id="configJsonWidget" inputName="configJson"/>
+        </widget>
+        <widget xsi:type="definition:Group" id="optionsGroup" optional="true">
+            <widget xsi:type="definition:Checkbox" id="verifySslWidget" inputName="verifySsl"/>
         </widget>
     </page>
 

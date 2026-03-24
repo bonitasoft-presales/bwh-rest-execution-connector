@@ -1,0 +1,126 @@
+# The name of the workflow as it appears in the GitHub Actions tab.
+name: Build and Deploy Pages
+
+# Defines the events that trigger this workflow. It runs on every push to the 'main' branch,
+# every pull request to 'main', and can also be triggered manually from the GitHub UI.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Grant necessary permissions to the GitHub Actions token for a secure deployment.
+# 'contents: read' allows the workflow to read the repository content.
+# 'pages: write' allows it to deploy to GitHub Pages.
+# 'id-token: write' is required for OpenID Connect (OIDC) authentication for deployments.
+permissions:
+  contents: read
+  packages: write 
+  pages: write
+  id-token: write
+
+# Defines the jobs that make up the workflow.
+jobs:
+  # The 'build' job is responsible for compiling the project, running tests,
+  # and preparing the artifacts for deployment.
+  build:
+    # Specifies the runner environment for this job.
+    runs-on: ubuntu-latest
+    
+    # The sequence of steps to be executed within this job.
+    steps:
+      # Checks out the repository code, making it available to the workflow.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Sets the execute permission on the Maven Wrapper scripts (mvnw and mvnw.cmd) to avoid a "Permission denied" error during the build step.
+      - name: Make Maven Wrapper executable
+        run: |
+          chmod +x mvnw
+          chmod +x mvnw.cmd
+
+      # Sets up the Java Development Kit (JDK) and Maven environment.
+      # 'temurin' is a common and reliable distribution.
+      # 'server-id' and 'cache' help with Maven's dependency management.
+      - name: Install Java and Maven - setup settings.xml
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          server-id: github
+          cache: 'maven'
+
+      # Configures the Git user identity for operations that require it,
+      # such as Maven's deploy goal.
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      # This is the core build step. It cleans, verifies, and builds the project.
+      # The 'site' goal generates the Javadoc and JaCoCo reports in the 'target/site' directory.
+      # Uses -Pci profile for optimized CI builds (reduced property test iterations)
+      - name: Build and Test
+        run: |
+          ./mvnw clean verify site -Pci
+
+      # Extracts the project version and final build name from the pom.xml
+      # and stores them as outputs for use in subsequent steps.
+      - name: Get version
+        id: get-version
+        run: |
+          VERSION=$( ./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout )
+          FINAL_NAME=$( ./mvnw help:evaluate -Dexpression=project.build.finalName -q -DforceStdout )
+          echo "::set-output name=version::$VERSION"
+          echo "::set-output name=final-name::$FINAL_NAME"
+
+      # Displays the extracted version and final name for logging and debugging purposes.
+      - name: Display version
+        id: display-version
+        run: |
+          echo "version: ${{ steps.get-version.outputs.version }}"
+          echo "final_name: ${{ steps.get-version.outputs.final-name }}"
+
+      # Publishes the project's artifact to the GitHub Package Registry.
+      # This step requires a GITHUB_TOKEN for authentication.
+      - name: Publish to Github Package
+        run: ./mvnw --batch-mode deploy -Dgithub.owner=${{ github.repository_owner }} -Dgithub.repo=${{ github.event.repository.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # This step consolidates Javadoc and JaCoCo reports into a single directory
+      # for a clean deployment to GitHub Pages.
+      - name: Unify reports for deployment
+        run: |
+          mkdir -p target/unified-reports/
+          cp -r target/site/* target/unified-reports/
+          cp -r target/reports/* target/unified-reports/
+
+      # Uploads the generated site documentation (Javadoc & JaCoCo reports) as a workflow artifact.
+      # This artifact will be used by the 'deploy' job.
+      - name: Upload reports for Pages deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'target/unified-reports'
+
+  # The 'deploy' job is responsible for deploying the site artifact to GitHub Pages.
+  deploy:
+    # This job only runs after the 'build' job has successfully completed.
+    needs: build
+    
+    # Defines the deployment environment and provides its URL.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      
+    # Specifies the runner environment for this job.
+    runs-on: ubuntu-latest
+    
+    # The steps for the 'deploy' job.
+    steps:
+      # The 'deploy-pages' action is a specialized action for deploying a site artifact
+      # to the GitHub Pages service.
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,165 @@
+name: Tag and Release
+
+on: workflow_dispatch
+
+jobs:
+  create-tag:
+    name: Create Tag
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Java and Maven - setup settings.xml
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          server-id: github
+          cache: 'maven'
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      # Build and test to ensure code quality before release
+      - name: Build and test
+        run: |
+          chmod +x mvnw
+          ./mvnw clean verify -Pci
+
+      - name: Force a hard reset to remove all local changes
+        run: git reset --hard
+
+      - name: Clean workspace
+        run: git clean -fdX
+
+      - name: Clean mvnw changes
+        run: git checkout -- mvnw
+
+      - name: Force file mode on mvnw
+        run: git update-index --chmod=+x mvnw
+
+      - name: Run Maven Release Prepare
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode release:prepare -Dgithub.owner=${{ github.repository_owner }} -Dgithub.repo=${{ github.event.repository.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release:
+    name: Create Release
+    needs: create-tag
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Java and Maven - setup settings.xml
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+          server-id: github
+          cache: 'maven'
+
+      - name: Configure Git user
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Force a hard reset to remove all local changes
+        run: git reset --hard
+
+      - name: Clean workspace
+        run: git clean -fdX
+
+      - name: Clean mvnw changes
+        run: git checkout -- mvnw
+
+      - name: Force file mode on mvnw
+        run: git update-index --chmod=+x mvnw
+        
+      - name: 'Get Previous tag'
+        id: previous-tag
+        uses: "WyriHaximus/github-action-get-previous-tag@master"
+
+      - name: Display tag
+        id: display-tag
+        run: |
+          echo "tag: ${{ steps.previous-tag.outputs.tag }}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.previous-tag.outputs.tag }}
+
+      # Build and test the tagged version (no site reports needed)
+      - name: Build and Test
+        id: build-and-test
+        run: |
+          echo "build ${{ steps.previous-tag.outputs.tag }}"
+          chmod +x mvnw
+          ./mvnw clean verify -Pci
+
+      - name: Get version from pom
+        id: get-version
+        run: |
+          chmod +x mvnw
+          VERSION=$( ./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout )
+          FINAL_NAME=$( ./mvnw help:evaluate -Dexpression=project.build.finalName -q -DforceStdout )
+          echo "::set-output name=version::$VERSION"
+          echo "::set-output name=final-name::$FINAL_NAME"
+
+      - name: Display version
+        id: display-version
+        run: |
+          echo "tag: ${{ steps.previous-tag.outputs.tag }}"
+          echo "version: ${{ steps.get-version.outputs.version }}"
+          echo "final_name: ${{ steps.get-version.outputs.final-name }}"
+
+      - name: Create Release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.previous-tag.outputs.tag }}
+          release_name: ${{ steps.previous-tag.outputs.tag }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release jar Asset
+        id: upload-release-asset-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: target/${{ steps.get-version.outputs.final-name }}.jar
+          asset_name: ${{ steps.get-version.outputs.final-name }}.jar
+          asset_content_type: application/zip
+
+      - name: Upload Release zip Asset
+        id: upload-release-asset-zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: target/${{ steps.get-version.outputs.final-name }}-impl.zip
+          asset_name: ${{ steps.get-version.outputs.final-name }}-impl.zip
+          asset_content_type: application/zip
+
+      - name: Publish to Github Package
+        run: |
+            chmod +x mvnw
+            ./mvnw --batch-mode deploy -Dgithub.owner=${{ github.repository_owner }} -Dgithub.repo=${{ github.event.repository.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
