@@ -52,6 +52,28 @@
         <jacoco.version>0.8.12</jacoco.version>
     </properties>
 
+    <!-- Resolve shared library from GitHub Packages -->
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/bonitasoft-presales/process-builder-extension-library</url>
+        </repository>
+    </repositories>
+
+    <!-- Publish connector artifact to GitHub Packages -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>github</id>
+            <name>Github Package</name>
+            <url>https://maven.pkg.github.com/${github.owner}/${github.repo}</url>
+        </snapshotRepository>
+        <repository>
+            <id>github</id>
+            <name>Github Package</name>
+            <url>https://maven.pkg.github.com/${github.owner}/${github.repo}</url>
+        </repository>
+    </distributionManagement>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -216,4 +238,27 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- CI profile: optimized for GitHub Actions -->
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <properties>
+                                <configurationParameters>
+                                    jqwik.tries.default = 100
+                                    junit.jupiter.execution.parallel.enabled = true
+                                </configurationParameters>
+                            </properties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

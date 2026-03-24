@@ -64,6 +64,8 @@ jobs:
       - name: Build and Test
         run: |
           ./mvnw clean verify site -Pci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Extracts the project version and final build name from the pom.xml
       # and stores them as outputs for use in subsequent steps.
