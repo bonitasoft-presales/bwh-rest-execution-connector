@@ -198,7 +198,15 @@ public class RestExecutionConnector extends AbstractConnector {
         Map<String, String> templateParams = parseJsonMap(getStringInput(INPUT_TEMPLATE_PARAMS_JSON));
         Map<String, String> headers = parseJsonMap(getStringInput(INPUT_HEADERS_JSON));
 
+        // Extract methodName from configJson if present
+        String methodName = null;
+        var configNode = MAPPER.readTree(configJson);
+        if (configNode.has("methodName")) {
+            methodName = configNode.get("methodName").asText();
+        }
+
         return ConnectorRequest.builder(configJson)
+                .methodName(methodName)
                 .params(templateParams)
                 .body(getStringInput(INPUT_BODY) != null ? getStringInput(INPUT_BODY) : "")
                 .headers(headers)
