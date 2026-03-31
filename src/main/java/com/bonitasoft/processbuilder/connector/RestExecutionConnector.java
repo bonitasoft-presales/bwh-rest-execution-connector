@@ -195,19 +195,32 @@ public class RestExecutionConnector extends AbstractConnector {
      * Config mode: delegate directly to engine with PBConfiguration JSON.
      */
     private ConnectorRequest buildFromConfigJson(String configJson) throws Exception {
-        Map<String, String> templateParams = parseJsonMap(getStringInput(INPUT_TEMPLATE_PARAMS_JSON));
+        Map<String, String> templateParams = new java.util.HashMap<>(parseJsonMap(getStringInput(INPUT_TEMPLATE_PARAMS_JSON)));
         Map<String, String> headers = parseJsonMap(getStringInput(INPUT_HEADERS_JSON));
+        Map<String, String> queryParams = new java.util.HashMap<>();
 
-        // Extract methodName from configJson if present
+        // Extract methodName, pathParams, and queryParams from configJson
         String methodName = null;
         var configNode = MAPPER.readTree(configJson);
         if (configNode.has("methodName")) {
             methodName = configNode.get("methodName").asText();
         }
+        if (configNode.has("pathParams") && configNode.get("pathParams").isObject()) {
+            configNode.get("pathParams").fields().forEachRemaining(e ->
+                templateParams.put(e.getKey(), e.getValue().asText())
+            );
+        }
+        if (configNode.has("queryParams") && configNode.get("queryParams").isObject()) {
+            configNode.get("queryParams").fields().forEachRemaining(e -> {
+                queryParams.put(e.getKey(), e.getValue().asText());
+                templateParams.put(e.getKey(), e.getValue().asText());
+            });
+        }
 
         return ConnectorRequest.builder(configJson)
                 .methodName(methodName)
                 .params(templateParams)
+                .queryParams(queryParams)
                 .body(getStringInput(INPUT_BODY) != null ? getStringInput(INPUT_BODY) : "")
                 .headers(headers)
                 .timeoutMs(getIntegerInput(INPUT_TIMEOUT_MS) != null ? getIntegerInput(INPUT_TIMEOUT_MS) : 0)
