@@ -26,7 +26,7 @@
         <bonita-runtime.version>10.2.0</bonita-runtime.version>
 
         <!-- Shared library -->
-        <pb-extension-lib.version>0.0.0.93</pb-extension-lib.version>
+        <pb-extension-lib.version>0.0.0.94</pb-extension-lib.version>
 
         <!-- Connector definition/implementation (Maven resource filtering) -->
         <definition-id>bwh-rest-execution</definition-id>
@@ -207,7 +207,7 @@
                 </executions>
             </plugin>
 
-            <!-- Package as ZIP for Bonita Studio import -->
+            <!-- Package as ZIP for Bonita Studio import + fat JAR for app dependency -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -222,6 +222,19 @@
                         <configuration>
                             <descriptors>
                                 <descriptor>src/assembly/connector-assembly.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>bonita-fat-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/bonita-assembly.xml</descriptor>
                             </descriptors>
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
