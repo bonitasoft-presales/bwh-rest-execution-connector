@@ -24,7 +24,7 @@ import java.util.Map;
  *   <li><b>Config mode</b>: A PBConfiguration JSON is provided via {@code configJson}, overriding all individual fields</li>
  * </ul>
  * <p>
- * Authentication types: NONE, BASIC, BEARER, API_KEY, OAUTH2_CLIENT_CREDENTIALS, OAUTH2_PASSWORD.
+ * Authentication types: NONE, BASIC, BEARER, API_KEY, OAUTH2_CLIENT_CREDENTIALS, OAUTH2_PASSWORD, OAUTH2_JWT_BEARER.
  * OAuth2 token acquisition and caching is managed internally by {@link ConnectorExecutionEngine}.
  * </p>
  * <p>
@@ -48,6 +48,8 @@ public class RestExecutionConnector extends AbstractConnector {
     public static final String INPUT_CLIENT_ID = "clientId";
     public static final String INPUT_CLIENT_SECRET = "clientSecret";
     public static final String INPUT_SCOPE = "scope";
+    public static final String INPUT_SERVICE_ACCOUNT_EMAIL = "serviceAccountEmail";
+    public static final String INPUT_PRIVATE_KEY = "privateKey";
 
     // Page 2: Request Configuration
     public static final String INPUT_HTTP_METHOD = "httpMethod";
@@ -320,6 +322,12 @@ public class RestExecutionConnector extends AbstractConnector {
                     putIfNotNull(auth, "username", getStringInput(INPUT_USERNAME));
                     putIfNotNull(auth, "password", getStringInput(INPUT_PASSWORD));
                 }
+            }
+            case "OAUTH2_JWT_BEARER" -> {
+                putIfNotNull(auth, "tokenUrl", getStringInput(INPUT_TOKEN_URL));
+                putIfNotNull(auth, "serviceAccountEmail", getStringInput(INPUT_SERVICE_ACCOUNT_EMAIL));
+                putIfNotNull(auth, "privateKey", getStringInput(INPUT_PRIVATE_KEY));
+                putIfNotNull(auth, "scope", getStringInput(INPUT_SCOPE));
             }
             default -> { /* NONE - no additional fields */ }
         }

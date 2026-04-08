@@ -427,6 +427,28 @@ class RestExecutionConnectorTest {
         }
 
         @Test
+        void should_build_correct_config_for_oauth2_jwt_bearer() throws Exception {
+            Map<String, Object> inputs = new HashMap<>();
+            inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "OAUTH2_JWT_BEARER");
+            inputs.put(RestExecutionConnector.INPUT_TOKEN_URL, "https://oauth2.googleapis.com/token");
+            inputs.put(RestExecutionConnector.INPUT_SERVICE_ACCOUNT_EMAIL, "sa@project.iam.gserviceaccount.com");
+            inputs.put(RestExecutionConnector.INPUT_PRIVATE_KEY, "-----BEGIN PRIVATE KEY-----\nMIIEv...\n-----END PRIVATE KEY-----");
+            inputs.put(RestExecutionConnector.INPUT_SCOPE, "https://www.googleapis.com/auth/drive");
+            inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "GET");
+            inputs.put(RestExecutionConnector.INPUT_URL, "https://www.googleapis.com");
+            setInputs(inputs);
+
+            String config = connector.buildConfigJsonFromWizard();
+            JsonNode root = MAPPER.readTree(config);
+
+            assertThat(root.get("auth").get("authType").asText()).isEqualTo("OAUTH2_JWT_BEARER");
+            assertThat(root.get("auth").get("tokenUrl").asText()).isEqualTo("https://oauth2.googleapis.com/token");
+            assertThat(root.get("auth").get("serviceAccountEmail").asText()).isEqualTo("sa@project.iam.gserviceaccount.com");
+            assertThat(root.get("auth").get("privateKey").asText()).contains("BEGIN PRIVATE KEY");
+            assertThat(root.get("auth").get("scope").asText()).isEqualTo("https://www.googleapis.com/auth/drive");
+        }
+
+        @Test
         void should_build_none_auth_when_authType_is_null() throws Exception {
             Map<String, Object> inputs = new HashMap<>();
             inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "GET");
@@ -935,6 +957,8 @@ class RestExecutionConnectorTest {
         allInputs.put(RestExecutionConnector.INPUT_CLIENT_ID, null);
         allInputs.put(RestExecutionConnector.INPUT_CLIENT_SECRET, null);
         allInputs.put(RestExecutionConnector.INPUT_SCOPE, null);
+        allInputs.put(RestExecutionConnector.INPUT_SERVICE_ACCOUNT_EMAIL, null);
+        allInputs.put(RestExecutionConnector.INPUT_PRIVATE_KEY, null);
         allInputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, null);
         allInputs.put(RestExecutionConnector.INPUT_URL, null);
         allInputs.put(RestExecutionConnector.INPUT_PATH, null);
