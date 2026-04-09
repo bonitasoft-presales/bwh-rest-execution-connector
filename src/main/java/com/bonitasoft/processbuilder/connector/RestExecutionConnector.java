@@ -64,6 +64,9 @@ public class RestExecutionConnector extends AbstractConnector {
     public static final String INPUT_TEMPLATE_PARAMS_JSON = "templateParamsJson";
     public static final String INPUT_TIMEOUT_MS = "timeoutMs";
     public static final String INPUT_VERIFY_SSL = "verifySsl";
+    public static final String INPUT_FILE_CONTENT_BASE64 = "fileContentBase64";
+    public static final String INPUT_FILE_CONTENT_TYPE = "fileContentType";
+    public static final String INPUT_FILE_NAME = "fileName";
     public static final String INPUT_CONFIG_JSON = "configJson";
 
     // Outputs
@@ -227,6 +230,9 @@ public class RestExecutionConnector extends AbstractConnector {
                 .headers(headers)
                 .timeoutMs(getIntegerInput(INPUT_TIMEOUT_MS) != null ? getIntegerInput(INPUT_TIMEOUT_MS) : 0)
                 .verifySsl(getBooleanInput(INPUT_VERIFY_SSL))
+                .fileContentBase64(getStringInput(INPUT_FILE_CONTENT_BASE64) != null ? getStringInput(INPUT_FILE_CONTENT_BASE64) : "")
+                .fileContentType(getStringInput(INPUT_FILE_CONTENT_TYPE) != null ? getStringInput(INPUT_FILE_CONTENT_TYPE) : "")
+                .fileName(getStringInput(INPUT_FILE_NAME) != null ? getStringInput(INPUT_FILE_NAME) : "")
                 .build();
     }
 
@@ -246,6 +252,9 @@ public class RestExecutionConnector extends AbstractConnector {
                 .verifySsl(getBooleanInput(INPUT_VERIFY_SSL))
                 .methodOverride(getStringInput(INPUT_HTTP_METHOD))
                 .queryParams(parseJsonMap(getStringInput(INPUT_QUERY_PARAMS_JSON)))
+                .fileContentBase64(getStringInput(INPUT_FILE_CONTENT_BASE64) != null ? getStringInput(INPUT_FILE_CONTENT_BASE64) : "")
+                .fileContentType(getStringInput(INPUT_FILE_CONTENT_TYPE) != null ? getStringInput(INPUT_FILE_CONTENT_TYPE) : "")
+                .fileName(getStringInput(INPUT_FILE_NAME) != null ? getStringInput(INPUT_FILE_NAME) : "")
                 .build();
     }
 

@@ -743,6 +743,78 @@ class RestExecutionConnectorTest {
     }
 
     // ========================================================================
+    // FILE UPLOAD (multipart/related)
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Execute - File Upload (multipart/related)")
+    class FileUploadExecution {
+
+        @Test
+        void should_pass_file_fields_to_engine_in_config_mode() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
+            String fileBase64 = java.util.Base64.getEncoder().encodeToString("fake-pdf".getBytes());
+            Map<String, Object> inputs = new HashMap<>();
+            inputs.put(RestExecutionConnector.INPUT_CONFIG_JSON, VALID_CONFIG_JSON);
+            inputs.put(RestExecutionConnector.INPUT_BODY, "{\"name\":\"test.pdf\"}");
+            inputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_BASE64, fileBase64);
+            inputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_TYPE, "application/pdf");
+            setInputs(inputs);
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            ConnectorRequest req = captor.getValue();
+            assertThat(req.fileContentBase64()).isEqualTo(fileBase64);
+            assertThat(req.fileContentType()).isEqualTo("application/pdf");
+            assertThat(req.body()).isEqualTo("{\"name\":\"test.pdf\"}");
+        }
+
+        @Test
+        void should_pass_file_fields_to_engine_in_wizard_mode() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
+            String fileBase64 = java.util.Base64.getEncoder().encodeToString("fake-content".getBytes());
+            Map<String, Object> inputs = new HashMap<>();
+            inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "NONE");
+            inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "POST");
+            inputs.put(RestExecutionConnector.INPUT_URL, "https://www.googleapis.com/upload/drive/v3/files");
+            inputs.put(RestExecutionConnector.INPUT_BODY, "{\"name\":\"doc.txt\"}");
+            inputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_BASE64, fileBase64);
+            inputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_TYPE, "text/plain");
+            setInputs(inputs);
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            ConnectorRequest req = captor.getValue();
+            assertThat(req.fileContentBase64()).isEqualTo(fileBase64);
+            assertThat(req.fileContentType()).isEqualTo("text/plain");
+        }
+
+        @Test
+        void should_default_file_fields_to_empty_when_null() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
+            setInputs(Map.of(RestExecutionConnector.INPUT_CONFIG_JSON, VALID_CONFIG_JSON));
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            ConnectorRequest req = captor.getValue();
+            assertThat(req.fileContentBase64()).isEmpty();
+            assertThat(req.fileContentType()).isEmpty();
+        }
+    }
+
+    // ========================================================================
     // CONNECT / DISCONNECT
     // ========================================================================
 
@@ -969,6 +1041,8 @@ class RestExecutionConnectorTest {
         allInputs.put(RestExecutionConnector.INPUT_TEMPLATE_PARAMS_JSON, null);
         allInputs.put(RestExecutionConnector.INPUT_TIMEOUT_MS, null);
         allInputs.put(RestExecutionConnector.INPUT_VERIFY_SSL, null);
+        allInputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_BASE64, null);
+        allInputs.put(RestExecutionConnector.INPUT_FILE_CONTENT_TYPE, null);
         allInputs.put(RestExecutionConnector.INPUT_CONFIG_JSON, null);
         allInputs.putAll(inputs);
         connector.setInputParameters(allInputs);

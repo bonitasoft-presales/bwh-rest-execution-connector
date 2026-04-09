@@ -14,8 +14,11 @@
     <!-- PBConfiguration (auth, methods, headers, etc.) via the configJson  -->
     <!-- Groovy script in PE_RestAPIConnector.                              -->
     <!-- ================================================================== -->
-    <input mandatory="false" name="configJson"  type="java.lang.String"/>
-    <input mandatory="false" name="verifySsl"   type="java.lang.Boolean" defaultValue="true"/>
+    <input mandatory="false" name="configJson"          type="java.lang.String"/>
+    <input mandatory="false" name="verifySsl"           type="java.lang.Boolean" defaultValue="true"/>
+    <input mandatory="false" name="fileContentBase64"   type="java.lang.String"/>
+    <input mandatory="false" name="fileContentType"     type="java.lang.String"/>
+    <input mandatory="false" name="fileName"            type="java.lang.String"/>
 
     <!-- ================================================================== -->
     <!-- Outputs                                                            -->
@@ -37,6 +40,11 @@
         </widget>
         <widget xsi:type="definition:Group" id="optionsGroup" optional="true">
             <widget xsi:type="definition:Checkbox" id="verifySslWidget" inputName="verifySsl"/>
+        </widget>
+        <widget xsi:type="definition:Group" id="fileUploadGroup" optional="true">
+            <widget xsi:type="definition:TextArea" id="fileContentBase64Widget" inputName="fileContentBase64"/>
+            <widget xsi:type="definition:Text" id="fileContentTypeWidget" inputName="fileContentType"/>
+            <widget xsi:type="definition:Text" id="fileNameWidget" inputName="fileName"/>
         </widget>
     </page>
 
