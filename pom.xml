@@ -26,7 +26,7 @@
         <bonita-runtime.version>10.2.0</bonita-runtime.version>
 
         <!-- Shared library -->
-        <pb-extension-lib.version>0.0.0.98</pb-extension-lib.version>
+        <pb-extension-lib.version>0.0.0.99</pb-extension-lib.version>
 
         <!-- Connector definition/implementation (Maven resource filtering) -->
         <definition-id>bwh-rest-execution</definition-id>

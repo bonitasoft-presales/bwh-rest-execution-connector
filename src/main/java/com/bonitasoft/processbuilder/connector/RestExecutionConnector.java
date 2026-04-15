@@ -238,11 +238,19 @@ public class RestExecutionConnector extends AbstractConnector {
 
     /**
      * Wizard mode: build PBConfiguration JSON from individual fields.
+     * <p>
+     * The headers map sent to the engine merges {@link #INPUT_CONTENT_TYPE} with
+     * {@link #INPUT_HEADERS_JSON} so that both end up in the final request even
+     * when the engine treats {@code request.headers} as a full replacement of
+     * {@code method.headers}. When both define {@code Content-Type}, the value
+     * from {@code INPUT_HEADERS_JSON} wins (explicit user override).
      */
     private ConnectorRequest buildFromWizardInputs() throws Exception {
         String generatedConfig = buildConfigJsonFromWizard();
         Map<String, String> templateParams = parseJsonMap(getStringInput(INPUT_TEMPLATE_PARAMS_JSON));
-        Map<String, String> headers = parseJsonMap(getStringInput(INPUT_HEADERS_JSON));
+        Map<String, String> headers = mergeContentTypeIntoHeaders(
+                getStringInput(INPUT_CONTENT_TYPE),
+                parseJsonMap(getStringInput(INPUT_HEADERS_JSON)));
 
         return ConnectorRequest.builder(generatedConfig)
                 .params(templateParams)
@@ -258,6 +266,18 @@ public class RestExecutionConnector extends AbstractConnector {
                 .build();
     }
 
+    private Map<String, String> mergeContentTypeIntoHeaders(String contentType, Map<String, String> headers) {
+        if (contentType == null || contentType.isBlank()) {
+            return headers;
+        }
+        Map<String, String> merged = new java.util.LinkedHashMap<>();
+        merged.put("Content-Type", contentType);
+        if (headers != null) {
+            merged.putAll(headers); // user-provided headers override Content-Type from wizard field
+        }
+        return merged;
+    }
+
     /**
      * Builds a PBConfiguration-compatible JSON from wizard page fields.
      * This allows the ConnectorExecutionEngine to process it uniformly.
@@ -270,18 +290,16 @@ public class RestExecutionConnector extends AbstractConnector {
         String path = getStringInput(INPUT_PATH);
         root.put("baseUrl", url != null ? url : "");
 
-        // Single method entry built from wizard fields
+        // Single method entry built from wizard fields.
+        // Note: Content-Type (INPUT_CONTENT_TYPE) is NOT written into method.headers here —
+        // it is merged into the request.headers map in buildFromWizardInputs() instead.
+        // Rationale: the engine now REPLACES method.headers with request.headers when the
+        // latter is non-empty, so mixing sources across both layers would drop Content-Type
+        // whenever the user also provides INPUT_HEADERS_JSON.
         ObjectNode method = MAPPER.createObjectNode();
         method.put("name", "default");
         method.put("httpMethod", getStringInput(INPUT_HTTP_METHOD) != null ? getStringInput(INPUT_HTTP_METHOD) : "GET");
         method.put("path", path != null ? path : "");
-
-        String contentType = getStringInput(INPUT_CONTENT_TYPE);
-        if (contentType != null && !contentType.isBlank()) {
-            ObjectNode methodHeaders = MAPPER.createObjectNode();
-            methodHeaders.put("Content-Type", contentType);
-            method.set("headers", methodHeaders);
-        }
 
         // Query params
         String queryParamsJson = getStringInput(INPUT_QUERY_PARAMS_JSON);

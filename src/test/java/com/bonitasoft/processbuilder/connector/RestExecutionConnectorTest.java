@@ -477,7 +477,10 @@ class RestExecutionConnectorTest {
         }
 
         @Test
-        void should_include_path_and_content_type_in_config() throws Exception {
+        void should_include_path_in_config_and_content_type_in_request_headers() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
             Map<String, Object> inputs = new HashMap<>();
             inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "NONE");
             inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "POST");
@@ -486,27 +489,82 @@ class RestExecutionConnectorTest {
             inputs.put(RestExecutionConnector.INPUT_CONTENT_TYPE, "application/xml");
             setInputs(inputs);
 
+            // Path still lives in the generated configJson...
             String config = connector.buildConfigJsonFromWizard();
             JsonNode root = MAPPER.readTree(config);
-
             JsonNode methodNode = root.get("methods").get(0);
             assertThat(methodNode.get("path").asText()).isEqualTo("/v2/users");
-            assertThat(methodNode.get("headers").get("Content-Type").asText()).isEqualTo("application/xml");
+            // ...but Content-Type is no longer stored under method.headers (would be
+            // wiped by the engine's REPLACE semantics if the user also passes INPUT_HEADERS_JSON).
+            assertThat(methodNode.has("headers")).isFalse();
+
+            // Content-Type is instead carried by request.headers.
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            assertThat(captor.getValue().headers()).containsEntry("Content-Type", "application/xml");
         }
 
         @Test
-        void should_not_include_headers_when_content_type_is_blank() throws Exception {
+        void should_not_include_headers_in_method_config() throws Exception {
+            // method.headers is never populated by the wizard — Content-Type lives on request.headers.
             Map<String, Object> inputs = new HashMap<>();
             inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "NONE");
             inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "GET");
             inputs.put(RestExecutionConnector.INPUT_URL, "https://api.example.com");
-            inputs.put(RestExecutionConnector.INPUT_CONTENT_TYPE, "   ");
+            inputs.put(RestExecutionConnector.INPUT_CONTENT_TYPE, "application/json");
             setInputs(inputs);
 
             String config = connector.buildConfigJsonFromWizard();
             JsonNode root = MAPPER.readTree(config);
 
             assertThat(root.get("methods").get(0).has("headers")).isFalse();
+        }
+
+        @Test
+        void should_merge_content_type_with_headers_json_in_request_headers() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
+            Map<String, Object> inputs = new HashMap<>();
+            inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "NONE");
+            inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "POST");
+            inputs.put(RestExecutionConnector.INPUT_URL, "https://api.example.com");
+            inputs.put(RestExecutionConnector.INPUT_CONTENT_TYPE, "application/json");
+            inputs.put(RestExecutionConnector.INPUT_HEADERS_JSON, "{\"X-Custom\":\"v\"}");
+            setInputs(inputs);
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            // Non-regression: both headers must be present even though the engine REPLACES
+            // method.headers with request.headers when the latter is non-empty.
+            assertThat(captor.getValue().headers())
+                    .containsEntry("Content-Type", "application/json")
+                    .containsEntry("X-Custom", "v");
+        }
+
+        @Test
+        void should_let_headers_json_override_content_type_wizard_field() throws Exception {
+            ConnectorResponse response = ConnectorResponse.success(200, "OK", Map.of(), 100L, "url");
+            when(mockEngine.execute(any(ConnectorRequest.class))).thenReturn(response);
+
+            Map<String, Object> inputs = new HashMap<>();
+            inputs.put(RestExecutionConnector.INPUT_AUTH_TYPE, "NONE");
+            inputs.put(RestExecutionConnector.INPUT_HTTP_METHOD, "POST");
+            inputs.put(RestExecutionConnector.INPUT_URL, "https://api.example.com");
+            inputs.put(RestExecutionConnector.INPUT_CONTENT_TYPE, "application/json");
+            inputs.put(RestExecutionConnector.INPUT_HEADERS_JSON, "{\"Content-Type\":\"application/xml\"}");
+            setInputs(inputs);
+            connector.setEngine(mockEngine);
+            connector.executeBusinessLogic();
+
+            ArgumentCaptor<ConnectorRequest> captor = ArgumentCaptor.forClass(ConnectorRequest.class);
+            verify(mockEngine).execute(captor.capture());
+            // Explicit user override via INPUT_HEADERS_JSON wins over INPUT_CONTENT_TYPE.
+            assertThat(captor.getValue().headers()).containsEntry("Content-Type", "application/xml");
         }
 
         @Test
