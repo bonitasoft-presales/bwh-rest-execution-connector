@@ -91,7 +91,7 @@ jobs:
         
       - name: 'Get Previous tag'
         id: previous-tag
-        uses: "WyriHaximus/github-action-get-previous-tag@master"
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
 
       - name: Display tag
         id: display-tag
@@ -128,38 +128,16 @@ jobs:
           echo "version: ${{ steps.get-version.outputs.version }}"
           echo "final_name: ${{ steps.get-version.outputs.final-name }}"
 
-      - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.previous-tag.outputs.tag }}
-          release_name: ${{ steps.previous-tag.outputs.tag }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release jar Asset
-        id: upload-release-asset-jar
-        uses: actions/upload-release-asset@v1
+          name: ${{ steps.previous-tag.outputs.tag }}
+          files: |
+            target/${{ steps.get-version.outputs.final-name }}.jar
+            target/${{ steps.get-version.outputs.final-name }}-impl.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: target/${{ steps.get-version.outputs.final-name }}.jar
-          asset_name: ${{ steps.get-version.outputs.final-name }}.jar
-          asset_content_type: application/zip
-
-      - name: Upload Release zip Asset
-        id: upload-release-asset-zip
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: target/${{ steps.get-version.outputs.final-name }}-impl.zip
-          asset_name: ${{ steps.get-version.outputs.final-name }}-impl.zip
-          asset_content_type: application/zip
 
       - name: Publish to Github Package
         run: |

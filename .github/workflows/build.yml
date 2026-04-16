@@ -109,9 +109,11 @@ jobs:
           path: 'target/unified-reports'
 
   # The 'deploy' job is responsible for deploying the site artifact to GitHub Pages.
+  # Only runs on push to main (GitHub Pages environment rejects PR deployments).
   deploy:
     # This job only runs after the 'build' job has successfully completed.
     needs: build
+    if: github.event_name == 'push'
     
     # Defines the deployment environment and provides its URL.
     environment:
