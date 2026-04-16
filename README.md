@@ -4,11 +4,10 @@
 [![Bonita Runtime](https://img.shields.io/badge/Bonita%20Runtime-10.2.0%2B-1BA7E6)](https://documentation.bonitasoft.com/)
 [![Build](https://github.com/bonitasoft-presales/bwh-rest-execution-connector/actions/workflows/build.yml/badge.svg)](https://github.com/bonitasoft-presales/bwh-rest-execution-connector/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/bonitasoft-presales/bwh-rest-execution-connector?include_prereleases)](https://github.com/bonitasoft-presales/bwh-rest-execution-connector/releases)
-[![License](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](./LICENSE)
 
-A **configuration-driven REST connector** for Bonita BPM. A single connector artifact handles arbitrary HTTP/HTTPS calls against external services, bundling authentication, templating, SSL control and rich response metadata. All runtime behaviour is described by a JSON payload (`configJson`) rather than by multiple dedicated Studio parameters, which keeps process diagrams clean and lets you swap endpoints, credentials or payloads without redesigning the diagram.
+A **configuration-driven REST connector** for Bonita BPM that handles arbitrary HTTP/HTTPS calls with built-in authentication, template substitution, file uploads and rich response metadata — all from a single connector artifact.
 
-Execution logic is delegated to `ConnectorExecutionEngine` from the [process-builder-extension-library](https://github.com/bonitasoft-presales/process-builder-extension-library), so authentication, templating and HTTP transport are shared — and tested — across the whole Process Builder ecosystem.
+Execution logic is delegated to `ConnectorExecutionEngine` from [process-builder-extension-library](https://github.com/bonitasoft-presales/process-builder-extension-library).
 
 ---
 
@@ -18,54 +17,47 @@ Execution logic is delegated to `ConnectorExecutionEngine` from the [process-bui
 2. [Features](#2-features)
 3. [Prerequisites](#3-prerequisites)
 4. [Installation](#4-installation)
-5. [Inputs](#5-inputs)
-6. [`configJson` Structure](#6-configjson-structure)
-7. [Authentication Modes](#7-authentication-modes)
-8. [Template Substitution](#8-template-substitution)
-9. [Outputs](#9-outputs)
-10. [Connector Lifecycle](#10-connector-lifecycle)
-11. [Build](#11-build)
-12. [CI/CD](#12-cicd)
-13. [Project Structure](#13-project-structure)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Limitations](#15-limitations)
-16. [Contributing](#16-contributing)
-17. [License](#17-license)
-18. [Links](#18-links)
+5. [Operating Modes](#5-operating-modes)
+6. [Studio Inputs (Connector Definition)](#6-studio-inputs-connector-definition)
+7. [Config Mode — `configJson` Structure](#7-config-mode--configjson-structure)
+8. [Wizard Mode — Individual Inputs](#8-wizard-mode--individual-inputs)
+9. [Authentication Types](#9-authentication-types)
+10. [Template Substitution](#10-template-substitution)
+11. [File Upload (Multipart)](#11-file-upload-multipart)
+12. [Outputs](#12-outputs)
+13. [Connector Lifecycle](#13-connector-lifecycle)
+14. [Build](#14-build)
+15. [CI/CD](#15-cicd)
+16. [Project Structure](#16-project-structure)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Limitations](#18-limitations)
+19. [Contributing](#19-contributing)
+20. [Links](#20-links)
 
 ---
 
 ## 1. Problem It Solves
 
-Out-of-the-box Bonita connectors for REST calls force designers to pick a specific connector per authentication scheme (Basic, OAuth2, API key, …), to wire every header and parameter manually, and to duplicate configuration across tasks. In long-running integration projects this leads to:
-
-- **Diagram bloat** — one REST call becomes several connector boxes if the auth type changes.
-- **Credential duplication** — tokens and base URLs copied into every task.
-- **Hard-to-audit integrations** — no single place to see what the process truly sends.
-
-`bwh-rest-execution-connector` replaces that sprawl with **one connector whose full contract lives in a JSON configuration**. The connector reads the configuration, selects the right authentication strategy, resolves placeholders, issues the HTTP request and returns a normalized response envelope.
+Standard Bonita REST connectors require one connector per authentication scheme, manual wiring of every header and parameter, and duplicated configuration across tasks. This connector replaces that with **one artifact** whose full request contract lives in a JSON configuration, keeping diagrams clean and configurations auditable.
 
 ## 2. Features
 
-- **Six authentication types** in a single connector: `NONE`, `BASIC`, `BEARER`, `API_KEY`, OAuth2 *Client Credentials* and OAuth2 *Password* grants.
-- **Configuration-as-JSON**: the full request — base URL, methods, headers, query parameters, body, timeouts — is encoded in one `configJson` string.
-- **Template substitution**: path, query and body values may reference runtime variables via the `{placeholder}` syntax, resolved at execution time.
-- **Full response envelope**: status code, body, headers, success flag, error message, execution time and effective request URL are returned as separate outputs.
-- **SSL control**: a dedicated `verifySsl` input toggles certificate validation for self-signed or internal environments.
-- **Clear lifecycle** aligned with Bonita standards: `VALIDATE → CONNECT → EXECUTE → DISCONNECT`.
-- **Studio-friendly**: ships as a single importable ZIP.
+- **Seven authentication types**: `NONE`, `BASIC`, `BEARER`, `API_KEY`, `OAUTH2_CLIENT_CREDENTIALS`, `OAUTH2_PASSWORD` and `OAUTH2_JWT_BEARER`.
+- **Dual operating mode**: *Config mode* (single `configJson` with the full `PBConfiguration`) or *Wizard mode* (individual Studio inputs for ad-hoc calls).
+- **Template substitution**: dynamic replacement of `{{placeholder}}` tokens in URLs, paths, headers, query parameters and body at execution time.
+- **File upload**: multipart/related body assembly for Google Drive, Gmail, Microsoft Graph and similar APIs.
+- **Full response envelope**: status code, body, headers, success flag, error message, execution time and resolved URL.
+- **SSL control**: dedicated `verifySsl` toggle.
+- **Connector lifecycle**: `VALIDATE → CONNECT → EXECUTE → DISCONNECT`.
 
 ## 3. Prerequisites
 
 | Requirement | Minimum version |
 |-------------|-----------------|
-| JDK | Java 17 |
+| JDK | 17 |
 | Bonita Runtime | 10.2.0 |
-| Bonita Studio | Release compatible with the runtime above |
-| Maven Wrapper | Bundled (`./mvnw`) — no global install required |
-| [`process-builder-extension-library`](https://github.com/bonitasoft-presales/process-builder-extension-library) | 0.0.0.92 or later, available on the runtime classpath |
-
-Internet access from the Bonita node is required for remote calls. When behind a corporate proxy, configure the JVM system properties (`http.proxyHost`, `https.proxyHost`, etc.) on the Bonita runtime.
+| Maven Wrapper | Bundled (`./mvnw`) |
+| [process-builder-extension-library](https://github.com/bonitasoft-presales/process-builder-extension-library) | 0.0.0.92+ |
 
 ## 4. Installation
 
@@ -75,17 +67,18 @@ Internet access from the Bonita node is required for remote calls. When behind a
 ./mvnw clean package
 ```
 
-The importable ZIP is generated at:
+Outputs:
 
-```
-target/bwh-rest-execution-connector-<version>-impl.zip
-```
+| Artifact | Purpose |
+|----------|---------|
+| `target/bwh-rest-execution-connector-<version>-impl.zip` | Importable ZIP for Bonita Studio |
+| `target/bwh-rest-execution-connector-<version>-bonita.jar` | Fat JAR for Bonita Application dependency resolution |
 
 ### 4.2. ZIP contents
 
 ```
 bwh-rest-execution-connector-<version>-impl.zip
-├── bwh-rest-execution.def          # Connector definition (inputs, outputs, UI)
+├── bwh-rest-execution.def          # Connector definition (inputs, outputs, UI pages)
 ├── bwh-rest-execution.impl         # Implementation descriptor + dependency list
 ├── bwh-rest-execution.properties   # UI labels (i18n)
 ├── connector.png                   # Icon
@@ -97,27 +90,34 @@ bwh-rest-execution-connector-<version>-impl.zip
 
 ### 4.3. Import into Bonita Studio
 
-1. Open Bonita Studio.
-2. Go to **Development → Connectors → Import**.
-3. Select the ZIP produced above.
-4. The connector is registered in the current workspace and becomes available from the Service Task connector picker.
+**Development → Connectors → Import** → select the ZIP. The connector appears as **PB REST Execution** in the `ProcessBuilder` category.
 
-### 4.4. Deploy to a running Bonita runtime
+## 5. Operating Modes
 
-Package your Bonita project as usual (`.bar` file) with the connector selected and deploy it through the Bonita Portal or via the Bonita CLI. The extension library JAR must be available on the runtime classpath.
+The connector supports two mutually exclusive modes:
 
-## 5. Inputs
+| Mode | When | Description |
+|------|------|-------------|
+| **Config mode** | `configJson` is provided and non-blank | The connector delegates everything to `ConnectorExecutionEngine`. All request details are inside the JSON. This is the standard path used by the Process Builder framework. |
+| **Wizard mode** | `configJson` is blank or absent | The connector builds the `PBConfiguration` JSON internally from individual inputs (auth type, URL, method, headers, body, etc.). Useful for ad-hoc one-off REST calls without the full Process Builder configuration. |
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `configJson` | `String` (JSON) | Yes | — | Serialized `PBConfiguration` object containing auth, baseUrl, methods, headers and all overrides. |
-| `verifySsl` | `Boolean` | No | `true` | Enable or disable SSL certificate verification. Disable only in controlled non-production environments. |
+Validation rules change with the mode:
+- **Config mode**: only validates that `configJson` is parseable JSON.
+- **Wizard mode**: requires `url` and `httpMethod` to be non-blank.
 
-> The `configJson` payload is typically produced by the `configJson()` Groovy helper in `PE_RestAPIConnector`, which resolves the configuration from `PBActionContent.contentRef` and process parameters.
+## 6. Studio Inputs (Connector Definition)
 
-## 6. `configJson` Structure
+These are the inputs visible in the Bonita Studio connector wizard (from `bwh-rest-execution.def`):
 
-The `configJson` parameter encapsulates the entire REST call configuration:
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `configJson` | `String` | No | — | Full `PBConfiguration` JSON. When provided, activates *config mode*. |
+| `verifySsl` | `Boolean` | No | `true` | SSL certificate verification. Set to `false` only in non-production environments. |
+| `fileContentBase64` | `String` | No | — | Base64-encoded file content for multipart uploads. |
+| `fileContentType` | `String` | No | — | MIME type of the uploaded file (e.g. `application/pdf`). |
+| `fileName` | `String` | No | — | Original filename for the upload. |
+
+## 7. Config Mode — `configJson` Structure
 
 ```json
 {
@@ -126,7 +126,7 @@ The `configJson` parameter encapsulates the entire REST call configuration:
     {
       "name": "default",
       "httpMethod": "POST",
-      "path": "/users/{userId}/orders",
+      "path": "/users/{{userId}}/orders",
       "headers": {
         "Content-Type": "application/json",
         "X-Custom-Header": "value"
@@ -134,7 +134,8 @@ The `configJson` parameter encapsulates the entire REST call configuration:
       "queryParams": {
         "page": "1",
         "limit": "10"
-      }
+      },
+      "bodyTemplate": "{\"orderId\": \"{{orderId}}\"}"
     }
   ],
   "auth": {
@@ -146,31 +147,76 @@ The `configJson` parameter encapsulates the entire REST call configuration:
 }
 ```
 
-> The authoritative schema is published by `process-builder-extension-library` at https://bonitasoft-presales.github.io/process-builder-extension-library/schema-doc/index.html.
+The engine resolves `{{placeholder}}` tokens from `templateParams`, applies authentication, builds the HTTP request and returns a normalized response.
 
-## 7. Authentication Modes
+> The authoritative schema is published at https://bonitasoft-presales.github.io/process-builder-extension-library/schema-doc/index.html.
 
-All authentication configuration is embedded in the `auth` section of `configJson`. The `ConnectorExecutionEngine` handles token acquisition, caching and refresh automatically.
+## 8. Wizard Mode — Individual Inputs
 
-### 7.1. `NONE` — No authentication
+When `configJson` is blank, the connector reads individual inputs and builds the configuration internally:
+
+### Page 1 — Authentication
+
+| Input | Description |
+|-------|-------------|
+| `authType` | One of: `NONE`, `BASIC`, `BEARER`, `API_KEY`, `OAUTH2_CLIENT_CREDENTIALS`, `OAUTH2_PASSWORD`, `OAUTH2_JWT_BEARER`. |
+| `username` | BASIC or OAUTH2_PASSWORD username. |
+| `password` | BASIC or OAUTH2_PASSWORD password. |
+| `token` | BEARER token. |
+| `apiKeyName` | API_KEY header/query parameter name. |
+| `apiKeyValue` | API_KEY value. |
+| `apiKeyLocation` | `HEADER` or `QUERY`. |
+| `tokenUrl` | OAuth2 / JWT Bearer token endpoint. |
+| `clientId` | OAuth2 client identifier. |
+| `clientSecret` | OAuth2 client secret. |
+| `scope` | OAuth2 / JWT Bearer scope. |
+| `serviceAccountEmail` | JWT Bearer service account email. |
+| `privateKey` | JWT Bearer private key (PEM). |
+
+### Page 2 — Request
+
+| Input | Description |
+|-------|-------------|
+| `httpMethod` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`. **Required.** |
+| `url` | Base URL (e.g. `https://api.example.com`). **Required.** |
+| `path` | Endpoint path (e.g. `/v1/users`). |
+| `contentType` | Content-Type header value. |
+
+### Page 3 — Parameters & Options
+
+| Input | Type | Description |
+|-------|------|-------------|
+| `body` | String | Request body (JSON, XML, etc.). |
+| `headersJson` | JSON map | Additional headers: `{"X-Custom": "value"}`. |
+| `queryParamsJson` | JSON map | Query parameters: `{"page": "1"}`. |
+| `templateParamsJson` | JSON map | Template variables: `{"userId": "42"}`. |
+| `timeoutMs` | Integer | Request timeout in ms. Default: `30000`. Must be >= 0. |
+
+> In wizard mode the connector generates a `configJson` with a single method named `"default"`, then delegates to the same engine.
+
+## 9. Authentication Types
+
+All authentication is embedded in the `auth` section of `configJson` (config mode) or set via individual inputs (wizard mode). The `ConnectorExecutionEngine` handles token acquisition, caching and refresh automatically.
+
+### 9.1. `NONE`
 
 ```json
 { "authType": "NONE" }
 ```
 
-### 7.2. `BASIC` — HTTP Basic Auth
+### 9.2. `BASIC`
 
 ```json
 { "authType": "BASIC", "username": "user", "password": "pass" }
 ```
 
-### 7.3. `BEARER` — Bearer token
+### 9.3. `BEARER`
 
 ```json
 { "authType": "BEARER", "token": "eyJhbGciOi..." }
 ```
 
-### 7.4. `API_KEY` — API key in header or query parameter
+### 9.4. `API_KEY`
 
 ```json
 {
@@ -183,7 +229,7 @@ All authentication configuration is embedded in the `auth` section of `configJso
 
 `location` accepts `HEADER` or `QUERY`.
 
-### 7.5. `OAUTH2_CLIENT_CREDENTIALS` — OAuth2 Client Credentials grant
+### 9.5. `OAUTH2_CLIENT_CREDENTIALS`
 
 ```json
 {
@@ -195,7 +241,7 @@ All authentication configuration is embedded in the `auth` section of `configJso
 }
 ```
 
-### 7.6. `OAUTH2_PASSWORD` — OAuth2 Resource Owner Password grant
+### 9.6. `OAUTH2_PASSWORD`
 
 ```json
 {
@@ -209,67 +255,98 @@ All authentication configuration is embedded in the `auth` section of `configJso
 }
 ```
 
-## 8. Template Substitution
+### 9.7. `OAUTH2_JWT_BEARER`
 
-Any string value inside `configJson` — typically URL paths, query parameters and body fields — may contain `{placeholderName}` tokens. Placeholders are substituted from the connector's runtime context before the request is built.
+For Google Cloud service accounts and similar JWT-based flows:
 
-For example, with the path `/users/{userId}/orgs/{orgId}` and template parameters `{"userId": "123", "orgId": "456"}`, the final path resolves to `/users/123/orgs/456`. Undefined placeholders fail the `VALIDATE` phase with a descriptive error rather than silently sending a malformed URL.
+```json
+{
+  "authType": "OAUTH2_JWT_BEARER",
+  "tokenUrl": "https://oauth2.googleapis.com/token",
+  "serviceAccountEmail": "sa@project.iam.gserviceaccount.com",
+  "privateKey": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+  "scope": "https://www.googleapis.com/auth/drive"
+}
+```
 
-## 9. Outputs
+## 10. Template Substitution
+
+All string values in the configuration — URLs, paths, headers, query parameters, body templates — support `{{placeholderName}}` tokens (double braces). Placeholders are resolved from the `templateParams` map before the request is built.
+
+**Example:**
+
+Path: `/users/{{userId}}/orgs/{{orgId}}`
+Template params: `{"userId": "123", "orgId": "456"}`
+Resolved path: `/users/123/orgs/456`
+
+Undefined placeholders remain as-is in the output. Validate your parameter names carefully.
+
+## 11. File Upload (Multipart)
+
+The connector supports `multipart/related` uploads (RFC 2387) for APIs like Google Drive, Gmail and Microsoft Graph. Provide:
+
+| Input | Description |
+|-------|-------------|
+| `fileContentBase64` | Base64-encoded file bytes. |
+| `fileContentType` | MIME type of the file (e.g. `image/png`). |
+| `fileName` | Original filename. |
+
+The engine assembles the multipart body with a JSON metadata part and the binary file part. These inputs work in both config and wizard mode.
+
+## 12. Outputs
 
 | Output | Type | Description |
 |--------|------|-------------|
-| `success` | `Boolean` | `true` when the HTTP status code is 2xx and no protocol error occurred. |
-| `statusCode` | `Integer` | HTTP status code returned by the server. |
-| `responseBody` | `String` | Raw response payload (usually JSON; parse downstream if needed). |
-| `responseHeaders` | `String` (JSON) | Serialized map of response headers. |
-| `errorMessage` | `String` | Populated when `success` is `false`; contains the root cause or the server's error description. |
-| `executionTimeMs` | `Long` | Wall-clock time of the HTTP exchange, including authentication round-trips. |
-| `requestUrl` | `String` | Fully resolved URL actually sent (base URL + path + query parameters, after template substitution). Useful for auditing. |
+| `success` | `Boolean` | `true` when HTTP status is 2xx and no protocol error occurred. |
+| `statusCode` | `Integer` | HTTP status code. Returns `-1` when an exception prevents the call. |
+| `responseBody` | `String` | Raw response payload. |
+| `responseHeaders` | `String` (JSON) | Serialized map of response headers. Defaults to `"{}"` on serialization failure. |
+| `errorMessage` | `String` | Populated when `success` is `false`; contains the root cause. |
+| `executionTimeMs` | `Long` | Wall-clock time including authentication round-trips. |
+| `requestUrl` | `String` | Fully resolved URL sent after template substitution. |
 
-## 10. Connector Lifecycle
+## 13. Connector Lifecycle
 
-The connector follows the standard Bonita connector lifecycle:
-
-1. **VALIDATE** — Validates that `configJson` is valid JSON and that `timeoutMs` ≥ 0.
+1. **VALIDATE**
+   - Config mode: validates that `configJson` is parseable JSON.
+   - Wizard mode: requires `url` and `httpMethod` to be non-blank.
+   - Both: `timeoutMs` must be >= 0 when provided.
 2. **CONNECT** — Initializes `ConnectorExecutionEngine`.
-3. **EXECUTE** — Builds a `ConnectorRequest` from `configJson`, delegates to the engine and maps the response to the declared outputs.
+3. **EXECUTE** — Builds `ConnectorRequest`, delegates to the engine, maps the response to the declared outputs. Catches all exceptions and sets `success=false`, `statusCode=-1`.
 4. **DISCONNECT** — Releases engine resources.
 
-## 11. Build
+## 14. Build
 
 ```bash
-# Standard build
+# Standard build (compile + test + package ZIP + fat JAR)
 ./mvnw clean package
 
 # Run tests only
 ./mvnw test
 
-# CI build (optimized jqwik iterations + parallel tests)
+# CI build (optimized jqwik iterations + parallel tests + site reports)
 ./mvnw clean verify site -Pci
 
-# Skip tests (fastest feedback loop)
+# Skip tests
 ./mvnw clean package -Pquick
 ```
 
-## 12. CI/CD
-
-GitHub Actions workflows shipped with the repository:
+## 15. CI/CD
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `build.yml` | Push / PR to `main` | Build, test, publish to GitHub Packages, deploy reports to Pages. |
-| `tagAndRelease.yml` | Manual (`workflow_dispatch`) | Tag the version and create a GitHub Release. |
-| `mutation.yml` | Manual | Run PIT mutation testing. |
-| `cleanup.yml` | Manual | Clean up old package versions. |
+| `build.yml` | Push / PR to `main` | Build, test, publish to GitHub Packages (push only), deploy reports to Pages (push only). |
+| `tagAndRelease.yml` | Manual (`workflow_dispatch`) | Tag the version and create a GitHub Release with JAR + ZIP assets. |
+| `mutation.yml` | Manual | Run PIT mutation testing with HTML report. |
+| `cleanup.yml` | Manual | Clean up old package versions and releases. |
 
-## 13. Project Structure
+## 16. Project Structure
 
 ```
 src/
 ├── main/
 │   ├── java/.../connector/
-│   │   └── RestExecutionConnector.java    # Main connector class
+│   │   └── RestExecutionConnector.java    # Main connector class (dual mode)
 │   ├── resources/
 │   │   ├── bwh-rest-execution.def         # Connector definition (inputs/outputs/UI)
 │   │   ├── bwh-rest-execution.properties  # UI labels
@@ -280,46 +357,41 @@ src/
 │   └── dependencies-as-var.groovy         # Generates JAR dependency list for the .impl
 ├── test/
 │   └── .../connector/
-│       └── RestExecutionConnectorTest.java
+│       └── RestExecutionConnectorTest.java  # ~75 test cases covering both modes
 └── assembly/
-    └── connector-assembly.xml             # ZIP packaging descriptor
+    ├── connector-assembly.xml             # ZIP packaging descriptor (Bonita Studio)
+    └── bonita-assembly.xml                # Fat JAR packaging descriptor (Bonita App)
 ```
 
-## 14. Troubleshooting
+## 17. Troubleshooting
 
 | Symptom | Likely cause | Resolution |
 |---------|--------------|------------|
-| `ConnectorValidationException: configJson is not valid JSON` | Malformed JSON passed to the input. | Validate the payload with a JSON linter; check quote escaping in Groovy. |
-| `UnknownHostException` or request timeout | Network egress blocked, wrong `baseUrl`, or missing proxy. | Verify DNS from the Bonita host; configure JVM proxy properties on the runtime. |
-| `401 Unauthorized` with OAuth2 | Token URL unreachable, wrong `clientId`/`clientSecret`, or scope rejected. | Inspect `errorMessage` and `requestUrl`; test the token endpoint with `curl`. |
-| `SSLHandshakeException` | Server certificate not trusted by the JVM's truststore. | Import the CA into the JVM truststore. Do **not** disable `verifySsl` in production. |
-| Placeholder not substituted | Variable name mismatch or variable `null` at execution time. | Check the process variable binding and default values. |
-| `ClassNotFoundException` for `com.bonitasoft.processbuilder.*` | `process-builder-extension-library` missing from the classpath. | Confirm the library JAR is bundled under `classpath/` in the connector ZIP or present in the runtime `lib/`. |
+| `ConnectorValidationException: configJson is not valid JSON` | Malformed JSON. | Validate with a JSON linter; check Groovy quote escaping. |
+| `ConnectorValidationException: url is required` | Wizard mode triggered (configJson blank) without URL. | Provide `configJson` or set `url` + `httpMethod`. |
+| `UnknownHostException` or timeout | DNS or network issue. | Verify connectivity from the Bonita host; check proxy settings. |
+| `401 Unauthorized` with OAuth2 | Bad credentials, wrong `tokenUrl` or rejected scope. | Inspect `errorMessage` and `requestUrl`; test the token endpoint with `curl`. |
+| `SSLHandshakeException` | Untrusted server certificate. | Import the CA into the JVM truststore. Do **not** disable `verifySsl` in production. |
+| `statusCode = -1` | Exception before the HTTP call (e.g. template error). | Check `errorMessage` for the root cause. |
+| `ClassNotFoundException: com.bonitasoft.processbuilder.*` | Extension library missing from classpath. | Confirm the library JAR is in the connector ZIP `classpath/` or in the runtime `lib/`. |
 
-Enable DEBUG logging for the connector package in the Bonita runtime logging configuration to capture full request metadata (URL, headers, masked credentials, status).
+## 18. Limitations
 
-## 15. Limitations
+- **HTTP/1.1** only; HTTP/2 negotiation depends on the JVM's `HttpClient`.
+- **No streaming**: the full response body is buffered in memory.
+- **Multipart**: only `multipart/related` is supported (for metadata + file). Standard `multipart/form-data` is not currently implemented.
+- **Retry**: only `timeoutMs` is exposed. Complex back-off strategies should be implemented at the process level.
 
-- The connector currently targets **HTTP/1.1**; HTTP/2 negotiation is delegated to the underlying HTTP client and is not explicitly exposed.
-- **Streaming** uploads/downloads are not supported; the full response body is buffered in memory.
-- Retry policies follow `timeoutMs` and optional retry fields; complex back-off strategies are out of scope and should be implemented at the process level.
-- **Mutual TLS (mTLS)** support has not been validated end-to-end in this README — consult the maintainers or the shared library documentation before relying on it.
+## 19. Contributing
 
-## 16. Contributing
+1. Branch from `main`: `<JIRA-ID>_<short-description>`.
+2. Follow Checkstyle, PMD and SpotBugs rules.
+3. Add tests for every change; run `./mvnw clean verify` before the PR.
+4. Open a Pull Request against `main`.
 
-1. Create a branch from `main` named after the Jira ticket: `<JIRA-ID>_<short-description>`.
-2. Follow the code style enforced by Checkstyle, PMD and SpotBugs.
-3. Every Java class must ship with unit tests; run `./mvnw clean verify` before opening the PR.
-4. Open a Pull Request against `main` and request a review from the Process Builder maintainers.
-
-## 17. License
-
-Distributed under the **GPL-2.0** license. See the `LICENSE` file for the full text.
-
-## 18. Links
+## 20. Links
 
 - **Project homepage**: https://github.com/bonitasoft-presales/bwh-rest-execution-connector
 - **Issue tracker**: https://github.com/bonitasoft-presales/bwh-rest-execution-connector/issues
-- **Companion library**: https://github.com/bonitasoft-presales/process-builder-extension-library
+- **Extension library**: https://github.com/bonitasoft-presales/process-builder-extension-library
 - **Configuration JSON Schema**: https://bonitasoft-presales.github.io/process-builder-extension-library/schema-doc/index.html
-- **Bonita custom connectors guide**: https://documentation.bonitasoft.com/bonita/latest/software-extensibility/connector-archetype
